@@ -54,7 +54,7 @@ public class RemoveStopWords extends Configured implements Tool {
       FileInputFormat.addInputPath(job, new Path(args[0]));
       FileOutputFormat.setOutputPath(job, new Path(args[1]));
 
-      job.getConfiguration().set("mapreduce.output.textoutputformat.seperator", "->6,,,,,,,,,,,, ");
+      job.getConfiguration().set("mapreduce.output.textoutputformat.seperator", "->");
       
 
       
