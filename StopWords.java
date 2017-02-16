@@ -5,13 +5,13 @@ package inverted_index;
 import java.io.IOException;
 import java.util.Arrays;
 
-import org.apache.avro.file.BZip2Codec;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
+import org.apache.hadoop.io.compress.BZip2Codec;
 import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
@@ -34,11 +34,15 @@ public class StopWords extends Configured implements Tool {
    @Override
    public int run(String[] args) throws Exception {
       System.out.println(Arrays.toString(args));
-      Job job = new Job(getConf(), "StopWords");
+      Configuration conf = new Configuration();
+      conf.setBoolean(Job.MAP_OUTPUT_COMPRESS, true);
+      conf.setClass(Job.MAP_OUTPUT_COMPRESS_CODEC, BZip2Codec.class,
+      CompressionCodec.class);
+      Job job = new Job(conf);
       job.setJarByClass(StopWords.class);
       job.setOutputKeyClass(Text.class);
       job.setOutputValueClass(IntWritable.class);
-      job.setNumReduceTasks(50);
+      job.setNumReduceTasks(10);
 
       job.setMapperClass(Map.class);
       job.setReducerClass(Reduce.class);
@@ -47,15 +51,13 @@ public class StopWords extends Configured implements Tool {
       job.setInputFormatClass(TextInputFormat.class);
       job.setOutputFormatClass(TextOutputFormat.class);
       
-      
-      FileOutputFormat.setCompressOutput(job, true);
-      FileOutputFormat.setOutputCompressorClass(job, org.apache.hadoop.io.compress.BZip2Codec.class);
+     
       
       FileInputFormat.addInputPath(job, new Path(args[0]));
       FileOutputFormat.setOutputPath(job, new Path(args[1]));
 
       job.getConfiguration().set("mapreduce.output.textoutputformat.seperator", ",");
-      
+
 
       
       job.waitForCompletion(true);
