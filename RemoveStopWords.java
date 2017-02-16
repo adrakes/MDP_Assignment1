@@ -2,17 +2,19 @@ package reduced_inverted_index;
 
 
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.HashSet;
 
-import org.apache.avro.file.BZip2Codec;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.io.compress.CompressionCodec;
+import org.apache.hadoop.mapreduce.lib.input.FileSplit;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
@@ -37,8 +39,8 @@ public class RemoveStopWords extends Configured implements Tool {
       Job job = new Job(getConf(), "RemoveStopWords");
       job.setJarByClass(RemoveStopWords.class);
       job.setOutputKeyClass(Text.class);
-      job.setOutputValueClass(IntWritable.class);
-      job.setNumReduceTasks(50);
+      job.setOutputValueClass(Text.class);
+      job.setNumReduceTasks(1);
 
       job.setMapperClass(Map.class);
       job.setReducerClass(Reduce.class);
@@ -52,7 +54,7 @@ public class RemoveStopWords extends Configured implements Tool {
       FileInputFormat.addInputPath(job, new Path(args[0]));
       FileOutputFormat.setOutputPath(job, new Path(args[1]));
 
-      job.getConfiguration().set("mapreduce.output.textoutputformat.seperator", ",");
+      job.getConfiguration().set("mapreduce.output.textoutputformat.seperator", "->");
       
 
       
@@ -61,30 +63,56 @@ public class RemoveStopWords extends Configured implements Tool {
       return 0;
    }
    
-   public static class Map extends Mapper<LongWritable, Text, Text, IntWritable> {
-      private final static IntWritable ONE = new IntWritable(1);
-      private Text word = new Text();
+   public static class Map extends Mapper<LongWritable, Text, Text, Text> {
+      private final static Text word = new Text();
+      private Text source = new Text();
 
       @Override
       public void map(LongWritable key, Text value, Context context)
               throws IOException, InterruptedException {
+    	  
+    	 HashSet<String> SW = new HashSet<String>();
+    	 BufferedReader LineReader = new BufferedReader(
+    			 new FileReader(new File("/home/cloudera/workspace/Homework1/output/StopWords_final_1.txt")));
+    	 String ord;
+    	 while ((ord = LineReader.readLine()) != null) {
+    		 SW.add(ord.toLowerCase());
+    	 }
+    	
+    	 String filenameStr = ((FileSplit) context.getInputSplit()).getPath().getName();
+    	 source = new Text(filenameStr);
+    	 
          for (String token: value.toString().split("\\s+")) {
-            word.set(token.toLowerCase());
-            context.write(word, ONE);
+        	 if (!SW.contains(token.toLowerCase())) {
+        		 word.set(token.toLowerCase());
+        	 }
+         }
+            context.write(word, source);
          }
       }
-   }
+   
 
-   public static class Reduce extends Reducer<Text, IntWritable, Text, IntWritable> {
+   public static class Reduce extends Reducer<Text, Text, Text, Text> {
       @Override
-      public void reduce(Text key, Iterable<IntWritable> values, Context context)
+      public void reduce(Text key, Iterable<Text> values, Context context)
               throws IOException, InterruptedException {
-         int sum = 0;
-         for (IntWritable val : values) {
-            sum += val.get();
-         }
-         if (sum > 4000) {
-         context.write(key, new IntWritable(sum));
+    	 HashSet<String> set = new HashSet<String>();
+    	 
+    	 for (Text verdi : values) {
+    		 set.add(verdi.toString());
+    	 }
+    	 
+    	 StringBuilder bygger = new StringBuilder();
+    	 
+    	 String pfx = "";
+    	 for (String verdi : set) {
+    		 bygger.append(pfx);
+    		 pfx = ", ";
+    		 bygger.append(verdi);
+    	 }
+    	 context.write(key, new Text(bygger.toString()));
+    	 
+        
       }
    }
-}}
+}
